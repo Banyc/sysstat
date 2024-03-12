@@ -1,0 +1,12 @@
+[package]
+name = "pidstat"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { workspace = true }
+common = { path = "../common" }
+rustix = { workspace = true }
+thiserror = "1.0.57"
+time = { workspace = true }
+tokio = { workspace = true }
