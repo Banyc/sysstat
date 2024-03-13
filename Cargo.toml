@@ -6,5 +6,6 @@ resolver = "2"
 clap = { version = "4", features = ["derive"] }
 rustix = "0.38"
 strict-num = "0.2"
+thiserror = "1"
 time = "0.3"
 tokio = { version = "1", features = ["full"] }

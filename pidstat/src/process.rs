@@ -2,7 +2,7 @@ use core::fmt;
 
 use common::value::{int_stat_color, item_name_color, normal_color, zero_int_stat_color};
 
-use crate::{io::IoStats, read::ProcId};
+use crate::{cpu::CpuStats, io::IoStats, read::ProcId};
 
 #[derive(Debug, Clone)]
 pub struct Process {
@@ -15,6 +15,7 @@ pub struct Process {
 #[derive(Debug, Clone)]
 pub struct ProcessStats {
     pub io: Option<IoStats>,
+    pub cpu: Option<CpuStats>,
 }
 
 pub struct IdHeaderDisplay {

@@ -316,6 +316,7 @@ dependencies = [
  "clap",
  "common",
  "rustix",
+ "strict-num",
  "thiserror",
  "time",
  "tokio",

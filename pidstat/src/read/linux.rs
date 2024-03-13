@@ -4,6 +4,7 @@ use thiserror::Error;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt};
 
 use crate::{
+    cpu::CpuStats,
     io::IoStats,
     process::{Process, ProcessStats},
 };
@@ -32,7 +33,21 @@ impl ReadStatsOptions {
                 time: now,
             });
         }
-        Ok((process, ProcessStats { io }))
+        let mut cpu = None;
+        if self.cpu {
+            let clock_ticks_per_second = rustix::param::clock_ticks_per_second();
+            let proc_sched = read_proc_sched(self.id).await?;
+            let wait_time = clock_ticks_per_second * proc_sched.wait_time / 1_000_000_000;
+            cpu = Some(CpuStats {
+                user_time: proc_stat.utime.saturating_sub(proc_stat.guest_time),
+                system_time: proc_stat.stime,
+                guest_time: proc_stat.guest_time,
+                wait_time,
+                time: now,
+                processor: proc_stat.processor,
+            })
+        }
+        Ok((process, ProcessStats { io, cpu }))
     }
 }
 
@@ -512,6 +527,44 @@ pub async fn read_proc_io(id: ProcId) -> Result<ProcIo, ReadStatsError> {
         cancelled_write_bytes: cancelled_write_bytes.expect("cancelled_write_bytes"),
     };
     Ok(stats)
+}
+
+/// Ref: <https://docs.kernel.org/scheduler/sched-stats.html>
+#[derive(Debug, Clone, Copy)]
+pub struct ProcSched {
+    /// time spent on the cpu (in nanoseconds)
+    pub cpu_time: u64,
+    /// time spent waiting on a runqueue (in nanoseconds)
+    pub wait_time: u64,
+    /// # of timeslices run on this cpu
+    pub timeslices: u64,
+}
+pub async fn read_proc_sched(id: ProcId) -> Result<ProcSched, ReadStatsError> {
+    let path = id.path("schedstat");
+    let mut file = tokio::fs::File::options()
+        .read(true)
+        .open(path)
+        .await
+        .map_err(ReadStatsError::NoSuchProcess)?;
+    let mut text = String::new();
+    file.read_to_string(&mut text).await.expect("UTF-8");
+    drop(file);
+
+    let mut items = text.split_whitespace();
+
+    let cpu_time = items.next().expect("cpu_time").parse().expect("cpu_time");
+    let wait_time = items.next().expect("wait_time").parse().expect("wait_time");
+    let timeslices = items
+        .next()
+        .expect("timeslices")
+        .parse()
+        .expect("timeslices");
+
+    Ok(ProcSched {
+        cpu_time,
+        wait_time,
+        timeslices,
+    })
 }
 
 #[derive(Debug, Error)]

@@ -1,6 +1,6 @@
 use core::fmt;
 
-use strict_num::FiniteF64;
+use strict_num::{FiniteF64, PositiveF64};
 use strum::FromRepr;
 
 pub struct FloatColorStatsDisplay<'a> {
@@ -11,21 +11,13 @@ pub struct FloatColorStatsDisplay<'a> {
 impl<'a> fmt::Display for FloatColorStatsDisplay<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let limit = if self.width == 1 { 0.05 } else { 0.005 };
+        let limit = PositiveF64::new(limit).unwrap();
 
         for v in self.values {
             // Color start
             let color_start = || {
-                match self.width {
-                    0 => {
-                        if -0.5 <= v.get() && v.get() <= 0.5 {
-                            return zero_int_stat_color();
-                        }
-                    }
-                    _ => {
-                        if -limit < v.get() && v.get() < limit {
-                            return zero_int_stat_color();
-                        }
-                    }
+                if round_half_to_even(*v, self.width, limit) {
+                    return zero_int_stat_color();
                 }
                 if v.get() <= -10.0 {
                     return extreme_percent_color();
@@ -60,11 +52,110 @@ impl<'a> fmt::Display for FloatColorStatsDisplay<'a> {
         Ok(())
     }
 }
-
 #[derive(Debug, Clone, Copy)]
 pub enum FloatDisplayPostfix {
     Unit(MemoryUnit),
     Decimals(usize),
+}
+
+fn round_half_to_even(v: FiniteF64, width: usize, limit: PositiveF64) -> bool {
+    match width {
+        0 => {
+            if -0.5 <= v.get() && v.get() <= 0.5 {
+                return true;
+            }
+        }
+        _ => {
+            if -limit.get() < v.get() && v.get() < limit.get() {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct PercentageColorStatsDisplay<'a> {
+    /// Not in the form of percentage numbers
+    pub values: &'a [PositiveF64],
+    pub width: usize,
+    pub decimals: usize,
+    pub limit: PercentageDisplayLimit,
+}
+impl<'a> fmt::Display for PercentageColorStatsDisplay<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let limit = if self.width == 1 { 0.05 } else { 0.005 };
+        let limit = PositiveF64::new(limit).unwrap();
+
+        // let width = self.width.saturating_sub(1);
+        let width = self.width;
+
+        for v in self.values {
+            const EXTREME_HIGH: f64 = 90.0;
+            const HIGH: f64 = 75.0;
+            const LOW: f64 = 25.0;
+            const EXTREME_LOW: f64 = 10.0;
+
+            let v = v.get() * 100.;
+
+            // Color start
+            let color_start = || {
+                let low = || {
+                    if v <= EXTREME_LOW {
+                        return Some(extreme_percent_color());
+                    }
+                    if v <= LOW {
+                        return Some(warn_percent_color());
+                    }
+                    None
+                };
+
+                match self.limit {
+                    PercentageDisplayLimit::ExtremeHigh => {
+                        if EXTREME_HIGH <= v {
+                            return extreme_percent_color();
+                        }
+                        if HIGH <= v {
+                            return warn_percent_color();
+                        }
+                    }
+                    PercentageDisplayLimit::ExtremeLow => {
+                        if let Some(color) = low() {
+                            return color;
+                        }
+                    }
+                    PercentageDisplayLimit::ExtremeLow0 => {
+                        if limit.get() <= v {
+                            if let Some(color) = low() {
+                                return color;
+                            }
+                        }
+                    }
+                }
+                if round_half_to_even(FiniteF64::new(v).unwrap(), width, limit) {
+                    return zero_int_stat_color();
+                }
+                int_stat_color()
+            };
+
+            write!(
+                f,
+                "{start} {value:width$.decimals$}{end}",
+                value = v,
+                width = width,
+                decimals = self.decimals,
+                start = color_start(),
+                end = normal_color()
+            )?;
+        }
+        Ok(())
+    }
+}
+#[derive(Debug, Clone, Copy)]
+pub enum PercentageDisplayLimit {
+    ExtremeHigh,
+    ExtremeLow,
+    ExtremeLow0,
 }
 
 pub struct U64ColorStatsDisplay<'a> {
