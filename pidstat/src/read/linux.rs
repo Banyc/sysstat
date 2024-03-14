@@ -298,7 +298,8 @@ pub async fn read_proc_stat(id: ProcId) -> Result<ProcStat, ReadStatsError> {
     file.read_to_string(&mut text).await.expect("UTF-8");
 
     let command_start = text.find('(').expect("(") + 1;
-    let command_end = text.find(')').expect(")");
+    // Match right-most `)`
+    let command_end = text.len() - text.chars().rev().position(|c| c == ')').expect(")") - 1;
     let command_len = command_end - command_start;
     let command = text
         .chars()
