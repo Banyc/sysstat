@@ -1,6 +1,5 @@
 use std::{num::NonZeroU32, path::Path, time::Instant};
 
-use thiserror::Error;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt};
 
 use crate::{
@@ -10,7 +9,7 @@ use crate::{
     process::{Process, ProcessStats},
 };
 
-use super::{ProcId, ReadStatsOptions, Stats};
+use super::{ProcId, ReadStatsError, ReadStatsOptions, Stats};
 
 impl ReadStatsOptions {
     pub async fn read(&self) -> Result<Stats, ReadStatsError> {
@@ -620,10 +619,4 @@ pub async fn read_proc_mem_info() -> Result<ProcMemInfo, ReadStatsError> {
     Ok(ProcMemInfo {
         mem_total: mem_total.expect("mem_total"),
     })
-}
-
-#[derive(Debug, Error)]
-pub enum ReadStatsError {
-    #[error("No such process: {0}")]
-    NoSuchProcess(#[source] std::io::Error),
 }

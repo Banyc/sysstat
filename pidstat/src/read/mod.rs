@@ -1,8 +1,13 @@
 use std::path::{Path, PathBuf};
 
+use thiserror::Error;
+
 use crate::process::{Process, ProcessStats};
 
+#[cfg(target_os = "linux")]
 pub mod linux;
+#[cfg(target_os = "macos")]
+pub mod macos;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ProcId {
@@ -32,4 +37,10 @@ pub struct ReadStatsOptions {
 pub struct Stats {
     pub process: Process,
     pub process_stats: ProcessStats,
+}
+
+#[derive(Debug, Error)]
+pub enum ReadStatsError {
+    #[error("No such process: {0}")]
+    NoSuchProcess(#[source] std::io::Error),
 }
