@@ -9,7 +9,22 @@ use crate::{
     process::{Process, ProcessStats},
 };
 
-use super::{ProcId, ReadStatsError, ReadStatsOptions, Stats};
+use super::{ProcId, ReadStatsError, ReadStatsOptions, ReadTasksOptions, Stats};
+
+impl ReadTasksOptions {
+    pub async fn read_tid(&self) -> Result<Vec<usize>, ReadStatsError> {
+        let path = Path::new("/proc").join(self.tgid.to_string()).join("task");
+        let mut tid = vec![];
+        let mut read_dir = tokio::fs::read_dir(path)
+            .await
+            .map_err(ReadStatsError::NoSuchProcess)?;
+        while let Some(entry) = read_dir.next_entry().await.expect("task") {
+            let t = entry.file_name().to_string_lossy().parse().expect("tid");
+            tid.push(t);
+        }
+        Ok(tid)
+    }
+}
 
 impl ReadStatsOptions {
     pub async fn read(&self) -> Result<Stats, ReadStatsError> {

@@ -44,3 +44,8 @@ pub enum ReadStatsError {
     #[error("No such process: {0}")]
     NoSuchProcess(#[source] std::io::Error),
 }
+
+#[derive(Debug, Clone, Copy)]
+pub struct ReadTasksOptions {
+    pub tgid: usize,
+}
