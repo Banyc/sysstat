@@ -4,6 +4,7 @@ use clap::Parser;
 use pidstat::{
     cpu::{CpuStatsHeaderDisplay, CpuStatsValueDisplay},
     io::{IoStatsHeaderDisplay, IoStatsValueDisplay},
+    mem::{MemStatsHeaderDisplay, MemStatsValueDisplay},
     process::TidDisplayOption,
     read::{ProcId, ReadStatsOptions},
 };
@@ -89,43 +90,45 @@ struct Cli {
     ///
     /// Command
     ///        The command name of the task.
-    ///
-    /// When reporting global statistics for tasks and all their
-    /// children, the following values may be displayed:
-    ///
-    /// UID    The real user identification number of the task
-    ///        which is being monitored together with its
-    ///        children.
-    ///
-    /// USER   The name of the real user owning the task which is
-    ///        being monitored together with its children.
-    ///
-    /// PID    The identification number of the task which is
-    ///        being monitored together with its children.
-    ///
-    /// usr-ms Total number of milliseconds spent by the task and
-    ///        all its children while executing at the user level
-    ///        (application), with or without nice priority, and
-    ///        collected during the interval of time. Note that
-    ///        this field does NOT include time spent running a
-    ///        virtual processor.
-    ///
-    /// system-ms
-    ///        Total number of milliseconds spent by the task and
-    ///        all its children while executing at the system
-    ///        level (kernel), and collected during the interval
-    ///        of time.
-    ///
-    /// guest-ms
-    ///        Total number of milliseconds spent by the task and
-    ///        all its children in virtual machine (running a
-    ///        virtual processor).
-    ///
-    /// Command
-    ///        The command name of the task which is being
-    ///        monitored together with its children.
     #[clap(short('u'), long)]
     cpu: bool,
+    /// Report page faults and memory utilization.
+    ///
+    /// When reporting statistics for individual tasks, the
+    /// following values may be displayed:
+    ///
+    /// UID    The real user identification number of the task
+    ///        being monitored.
+    ///
+    /// USER   The name of the real user owning the task being
+    ///        monitored.
+    ///
+    /// PID    The identification number of the task being
+    ///        monitored.
+    ///
+    /// minflt/s
+    ///        Total number of minor faults the task has made per
+    ///        second, those which have not required loading a
+    ///        memory page from disk.
+    ///
+    /// majflt/s
+    ///        Total number of major faults the task has made per
+    ///        second, those which have required loading a memory
+    ///        page from disk.
+    ///
+    /// VSZ    Virtual Size: The virtual memory usage of entire
+    ///        task in kilobytes.
+    ///
+    /// RSS    Resident Set Size: The non-swapped physical memory
+    ///        used by the task in kilobytes.
+    ///
+    /// %MEM   The tasks's currently used share of available
+    ///        physical memory.
+    ///
+    /// Command
+    ///        The command name of the task.
+    #[clap(short('r'), long)]
+    mem: bool,
     /// Specify the amount of time in seconds between each report
     #[clap(default_value = "1")]
     interval: u64,
@@ -140,18 +143,17 @@ async fn main() {
             tid: None,
         },
         io: cli.io,
-        disk: false,
-        mem: false,
+        mem: cli.mem,
         cpu: cli.cpu,
     };
     let mut prev_process_stats = None;
     loop {
         if prev_process_stats.is_none() {
-            let (_, p) = options.read().await.unwrap();
-            prev_process_stats = Some(p);
+            let stats = options.read().await.unwrap();
+            prev_process_stats = Some(stats.process_stats);
         }
         tokio::time::sleep(Duration::from_secs(cli.interval)).await;
-        let (process, curr_process_stats) = options.read().await.unwrap();
+        let stats = options.read().await.unwrap();
 
         if options.io {
             print!(
@@ -164,9 +166,9 @@ async fn main() {
                 "{}",
                 IoStatsValueDisplay {
                     tid: TidDisplayOption::Pid,
-                    process: &process,
+                    process: &stats.process,
                     prev_stats: prev_process_stats.as_ref().unwrap().io.as_ref().unwrap(),
-                    curr_stats: curr_process_stats.io.as_ref().unwrap(),
+                    curr_stats: stats.process_stats.io.as_ref().unwrap(),
                 }
             );
         }
@@ -181,13 +183,30 @@ async fn main() {
                 "{}",
                 CpuStatsValueDisplay {
                     tid: TidDisplayOption::Pid,
-                    process: &process,
+                    process: &stats.process,
                     prev_stats: prev_process_stats.as_ref().unwrap().cpu.as_ref().unwrap(),
-                    curr_stats: curr_process_stats.cpu.as_ref().unwrap(),
+                    curr_stats: stats.process_stats.cpu.as_ref().unwrap(),
+                }
+            );
+        }
+        if options.mem {
+            print!(
+                "{}",
+                MemStatsHeaderDisplay {
+                    tid: TidDisplayOption::Pid
+                }
+            );
+            print!(
+                "{}",
+                MemStatsValueDisplay {
+                    tid: TidDisplayOption::Pid,
+                    process: &stats.process,
+                    prev_stats: prev_process_stats.as_ref().unwrap().mem.as_ref().unwrap(),
+                    curr_stats: stats.process_stats.mem.as_ref().unwrap(),
                 }
             );
         }
 
-        prev_process_stats = Some(curr_process_stats);
+        prev_process_stats = Some(stats.process_stats);
     }
 }

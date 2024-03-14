@@ -1,4 +1,4 @@
-use std::{num::NonZeroU32, time::Instant};
+use std::{num::NonZeroU32, path::Path, time::Instant};
 
 use thiserror::Error;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt};
@@ -6,13 +6,14 @@ use tokio::io::{AsyncBufReadExt, AsyncReadExt};
 use crate::{
     cpu::CpuStats,
     io::IoStats,
+    mem::MemStats,
     process::{Process, ProcessStats},
 };
 
-use super::{ProcId, ReadStatsOptions};
+use super::{ProcId, ReadStatsOptions, Stats};
 
 impl ReadStatsOptions {
-    pub async fn read(&self) -> Result<(Process, ProcessStats), ReadStatsError> {
+    pub async fn read(&self) -> Result<Stats, ReadStatsError> {
         let now = Instant::now();
         let proc_stat = read_proc_stat(self.id).await?;
         let proc_status = read_proc_status(self.id).await?;
@@ -45,9 +46,28 @@ impl ReadStatsOptions {
                 wait_time,
                 time: now,
                 processor: proc_stat.processor,
+                clock_ticks_per_second,
             })
         }
-        Ok((process, ProcessStats { io, cpu }))
+        let mut mem = None;
+        if self.mem {
+            let mem_info = read_proc_mem_info().await?;
+            let page_size = rustix::param::page_size();
+            mem = Some(MemStats {
+                minflt: proc_stat.minflt,
+                majflt: proc_stat.majflt,
+                vsz: proc_stat.vsize / 1024,
+                rss: proc_stat.rss * u64::try_from(page_size).expect("page_size") / 1024,
+                tot_mem: mem_info.mem_total,
+                time: now,
+            })
+        }
+        let process_stats = ProcessStats { io, cpu, mem };
+
+        Ok(Stats {
+            process,
+            process_stats,
+        })
     }
 }
 
@@ -564,6 +584,41 @@ pub async fn read_proc_sched(id: ProcId) -> Result<ProcSched, ReadStatsError> {
         cpu_time,
         wait_time,
         timeslices,
+    })
+}
+
+/// Ref: <https://man7.org/linux/man-pages/man5/proc.5.html>
+#[derive(Debug, Clone, Copy)]
+pub struct ProcMemInfo {
+    pub mem_total: u64,
+}
+pub async fn read_proc_mem_info() -> Result<ProcMemInfo, ReadStatsError> {
+    let path = Path::new("/proc/meminfo");
+    let file = tokio::fs::File::options()
+        .read(true)
+        .open(path)
+        .await
+        .map_err(ReadStatsError::NoSuchProcess)?;
+    let buf = tokio::io::BufReader::new(file);
+    let mut lines = buf.lines();
+    let mut mem_total = None;
+    while let Some(line) = lines.next_line().await.expect("UTF-8") {
+        const MEM_TOTAL: &str = "MemTotal:";
+        if line.starts_with(MEM_TOTAL) {
+            let remaining = line.chars().skip(MEM_TOTAL.len()).collect::<String>();
+            mem_total = Some(
+                remaining
+                    .split_whitespace()
+                    .next()
+                    .expect("mem_total")
+                    .parse()
+                    .expect("mem_total"),
+            );
+        }
+    }
+
+    Ok(ProcMemInfo {
+        mem_total: mem_total.expect("mem_total"),
     })
 }
 

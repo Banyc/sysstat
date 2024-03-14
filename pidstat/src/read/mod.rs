@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use crate::process::{Process, ProcessStats};
+
 pub mod linux;
 
 #[derive(Debug, Clone, Copy)]
@@ -23,7 +25,11 @@ impl ProcId {
 pub struct ReadStatsOptions {
     pub id: ProcId,
     pub io: bool,
-    pub disk: bool,
     pub mem: bool,
     pub cpu: bool,
+}
+
+pub struct Stats {
+    pub process: Process,
+    pub process_stats: ProcessStats,
 }

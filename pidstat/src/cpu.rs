@@ -23,6 +23,7 @@ pub struct CpuStats {
     pub wait_time: u64,
     pub time: Instant,
     pub processor: Option<u32>,
+    pub clock_ticks_per_second: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -53,7 +54,7 @@ impl<'a> fmt::Display for CpuStatsValueDisplay<'a> {
         write!(f, "{}", display)?;
 
         let interval = self.curr_stats.time - self.prev_stats.time;
-        let clock_ticks_per_second = rustix::param::clock_ticks_per_second();
+        let clock_ticks_per_second = self.curr_stats.clock_ticks_per_second;
 
         let usr = change_per_second(
             self.prev_stats.user_time.into(),
