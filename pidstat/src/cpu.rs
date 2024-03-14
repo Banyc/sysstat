@@ -7,7 +7,9 @@ use common::{
 };
 use strict_num::PositiveF64;
 
-use crate::process::{CommandDisplay, IdHeaderDisplay, IdValueDisplay, Process, TidDisplayOption};
+use crate::process::{
+    CommandDisplay, IdHeaderDisplay, IdValueDisplay, ProcessId, TidDisplayOption,
+};
 
 #[derive(Debug, Clone)]
 pub struct CpuStats {
@@ -41,14 +43,14 @@ impl fmt::Display for CpuStatsHeaderDisplay {
 #[derive(Debug, Clone)]
 pub struct CpuStatsValueDisplay<'a> {
     pub tid: TidDisplayOption,
-    pub process: &'a Process,
+    pub id: &'a ProcessId,
     pub prev_stats: &'a CpuStats,
     pub curr_stats: &'a CpuStats,
 }
 impl<'a> fmt::Display for CpuStatsValueDisplay<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let display = IdValueDisplay {
-            process: self.process,
+            process: self.id,
             tid: self.tid,
         };
         write!(f, "{}", display)?;
@@ -134,9 +136,7 @@ impl<'a> fmt::Display for CpuStatsValueDisplay<'a> {
             )?;
         }
 
-        let display = CommandDisplay {
-            process: self.process,
-        };
+        let display = CommandDisplay { process: self.id };
         writeln!(f, "{}", display)?;
 
         Ok(())

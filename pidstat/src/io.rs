@@ -6,7 +6,9 @@ use common::{
     value::{FloatColorStatsDisplay, FloatDisplayPostfix, U64ColorStatsDisplay},
 };
 
-use crate::process::{CommandDisplay, IdHeaderDisplay, IdValueDisplay, Process, TidDisplayOption};
+use crate::process::{
+    CommandDisplay, IdHeaderDisplay, IdValueDisplay, ProcessId, TidDisplayOption,
+};
 
 #[derive(Debug, Clone)]
 pub struct IoStats {
@@ -32,15 +34,14 @@ impl fmt::Display for IoStatsHeaderDisplay {
 #[derive(Debug, Clone)]
 pub struct IoStatsValueDisplay<'a> {
     pub tid: TidDisplayOption,
-    // pub average_stats: bool,
-    pub process: &'a Process,
+    pub id: &'a ProcessId,
     pub prev_stats: &'a IoStats,
     pub curr_stats: &'a IoStats,
 }
 impl<'a> fmt::Display for IoStatsValueDisplay<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let display = IdValueDisplay {
-            process: self.process,
+            process: self.id,
             tid: self.tid,
         };
         write!(f, "{}", display)?;
@@ -81,9 +82,7 @@ impl<'a> fmt::Display for IoStatsValueDisplay<'a> {
         };
         write!(f, "{}", display)?;
 
-        let display = CommandDisplay {
-            process: self.process,
-        };
+        let display = CommandDisplay { process: self.id };
         writeln!(f, "{}", display)?;
 
         Ok(())

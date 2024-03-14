@@ -275,10 +275,13 @@ pub const fn normal_color() -> &'static str {
     NORMAL
 }
 
+#[allow(dead_code)]
 const LIGHT_RED: &str = "\x1b[31;22m";
 const BOLD_RED: &str = "\x1b[31;1m";
 const LIGHT_GREEN: &str = "\x1b[32;22m";
+#[allow(dead_code)]
 const BOLD_GREEN: &str = "\x1b[32;1m";
+#[allow(dead_code)]
 const LIGHT_YELLOW: &str = "\x1b[33;22m";
 const BOLD_MAGENTA: &str = "\x1b[35;1m";
 const BOLD_BLUE: &str = "\x1b[34;1m";

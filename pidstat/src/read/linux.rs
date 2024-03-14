@@ -6,7 +6,7 @@ use crate::{
     cpu::CpuStats,
     io::IoStats,
     mem::MemStats,
-    process::{Process, ProcessStats},
+    process::{ComponentStats, ProcessId},
 };
 
 use super::{ProcId, ReadStatsError, ReadStatsOptions, ReadTasksOptions, Stats};
@@ -31,14 +31,14 @@ impl ReadStatsOptions {
         let now = Instant::now();
         let proc_stat = read_proc_stat(self.id).await?;
         let proc_status = read_proc_status(self.id).await?;
-        let process = Process {
+        let id = ProcessId {
             uid: proc_status.uid,
             proc_id: self.id,
             command: proc_stat.command,
         };
 
         let mut cpu = None;
-        if self.cpu {
+        if self.components.cpu {
             let clock_ticks_per_second = rustix::param::clock_ticks_per_second();
             let proc_sched = read_proc_sched(self.id).await?;
             let wait_time = clock_ticks_per_second * proc_sched.wait_time / 1_000_000_000;
@@ -53,7 +53,7 @@ impl ReadStatsOptions {
             })
         }
         let mut mem = None;
-        if self.mem {
+        if self.components.mem {
             let mem_info = read_proc_mem_info().await?;
             let page_size = rustix::param::page_size();
             mem = Some(MemStats {
@@ -66,7 +66,7 @@ impl ReadStatsOptions {
             })
         }
         let mut io = None;
-        if self.io {
+        if self.components.io {
             let proc_io = read_proc_io(self.id).await?;
             io = Some(IoStats {
                 read_bytes: proc_io.read_bytes,
@@ -76,12 +76,9 @@ impl ReadStatsOptions {
                 time: now,
             });
         }
-        let process_stats = ProcessStats { cpu, mem, io };
+        let components = ComponentStats { cpu, mem, io };
 
-        Ok(Stats {
-            process,
-            process_stats,
-        })
+        Ok(Stats { id, components })
     }
 }
 

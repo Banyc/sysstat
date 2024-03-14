@@ -1,12 +1,9 @@
-use std::{collections::BTreeMap, time::Duration};
+use std::time::Duration;
 
 use clap::Parser;
 use pidstat::{
-    cpu::{CpuStatsHeaderDisplay, CpuStatsValueDisplay},
-    io::{IoStatsHeaderDisplay, IoStatsValueDisplay},
-    mem::{MemStatsHeaderDisplay, MemStatsValueDisplay},
-    process::TidDisplayOption,
-    read::{ProcId, ReadStatsOptions, ReadTasksOptions},
+    read::{read_task_group_stats, ComponentOptions},
+    TaskGroupStatsDisplay,
 };
 
 #[derive(Debug, Clone, Parser)]
@@ -139,171 +136,30 @@ struct Cli {
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
-    let options = ReadStatsOptions {
-        id: ProcId {
-            pid: cli.pid,
-            tid: None,
-        },
+    let components = ComponentOptions {
         cpu: cli.cpu,
         mem: cli.mem,
         io: cli.io,
     };
-    let tid_display_option = if cli.task {
-        TidDisplayOption::Tid
-    } else {
-        TidDisplayOption::Pid
-    };
-    let mut prev_process_stats = None;
-    let mut prev_task_stats = BTreeMap::new();
+
+    let mut prev_stats = None;
     loop {
-        if prev_process_stats.is_none() {
-            let stats = options.read().await.unwrap();
-            prev_process_stats = Some(stats.process_stats);
-
-            if cli.task {
-                let tid = ReadTasksOptions {
-                    tgid: options.id.pid,
-                }
-                .read_tid()
-                .await
-                .unwrap();
-                for tid in tid {
-                    let options = ReadStatsOptions {
-                        id: ProcId {
-                            pid: options.id.pid,
-                            tid: Some(tid),
-                        },
-                        cpu: options.cpu,
-                        mem: options.mem,
-                        io: options.io,
-                    };
-                    let stats = options.read().await.unwrap();
-                    prev_task_stats.insert(tid, stats);
-                }
-            }
+        if prev_stats.is_none() {
+            prev_stats = Some(
+                read_task_group_stats(cli.pid, components, cli.task)
+                    .await
+                    .unwrap(),
+            );
         }
-
         tokio::time::sleep(Duration::from_secs(cli.interval)).await;
-
-        let stats = options.read().await.unwrap();
-
-        let mut task_stats = BTreeMap::new();
-        if cli.task {
-            let tid = ReadTasksOptions {
-                tgid: options.id.pid,
-            }
-            .read_tid()
+        let stats = read_task_group_stats(cli.pid, components, cli.task)
             .await
             .unwrap();
-            for tid in tid {
-                let options = ReadStatsOptions {
-                    id: ProcId {
-                        pid: options.id.pid,
-                        tid: Some(tid),
-                    },
-                    cpu: options.cpu,
-                    mem: options.mem,
-                    io: options.io,
-                };
-                let stats = options.read().await.unwrap();
-                task_stats.insert(tid, stats);
-            }
-        }
-
-        if options.cpu {
-            print!(
-                "{}",
-                CpuStatsHeaderDisplay {
-                    tid: tid_display_option
-                }
-            );
-            print!(
-                "{}",
-                CpuStatsValueDisplay {
-                    tid: tid_display_option,
-                    process: &stats.process,
-                    prev_stats: prev_process_stats.as_ref().unwrap().cpu.as_ref().unwrap(),
-                    curr_stats: stats.process_stats.cpu.as_ref().unwrap(),
-                }
-            );
-            for (tid, stats) in &task_stats {
-                let Some(prev_stats) = prev_task_stats.get(tid) else {
-                    continue;
-                };
-                print!(
-                    "{}",
-                    CpuStatsValueDisplay {
-                        tid: tid_display_option,
-                        process: &stats.process,
-                        prev_stats: prev_stats.process_stats.cpu.as_ref().unwrap(),
-                        curr_stats: stats.process_stats.cpu.as_ref().unwrap(),
-                    }
-                );
-            }
-        }
-        if options.mem {
-            print!(
-                "{}",
-                MemStatsHeaderDisplay {
-                    tid: tid_display_option
-                }
-            );
-            print!(
-                "{}",
-                MemStatsValueDisplay {
-                    tid: tid_display_option,
-                    process: &stats.process,
-                    prev_stats: prev_process_stats.as_ref().unwrap().mem.as_ref().unwrap(),
-                    curr_stats: stats.process_stats.mem.as_ref().unwrap(),
-                }
-            );
-            for (tid, stats) in &task_stats {
-                let Some(prev_stats) = prev_task_stats.get(tid) else {
-                    continue;
-                };
-                print!(
-                    "{}",
-                    MemStatsValueDisplay {
-                        tid: tid_display_option,
-                        process: &stats.process,
-                        prev_stats: prev_stats.process_stats.mem.as_ref().unwrap(),
-                        curr_stats: stats.process_stats.mem.as_ref().unwrap(),
-                    }
-                );
-            }
-        }
-        if options.io {
-            print!(
-                "{}",
-                IoStatsHeaderDisplay {
-                    tid: tid_display_option
-                }
-            );
-            print!(
-                "{}",
-                IoStatsValueDisplay {
-                    tid: tid_display_option,
-                    process: &stats.process,
-                    prev_stats: prev_process_stats.as_ref().unwrap().io.as_ref().unwrap(),
-                    curr_stats: stats.process_stats.io.as_ref().unwrap(),
-                }
-            );
-            for (tid, stats) in &task_stats {
-                let Some(prev_stats) = prev_task_stats.get(tid) else {
-                    continue;
-                };
-                print!(
-                    "{}",
-                    IoStatsValueDisplay {
-                        tid: tid_display_option,
-                        process: &stats.process,
-                        prev_stats: prev_stats.process_stats.io.as_ref().unwrap(),
-                        curr_stats: stats.process_stats.io.as_ref().unwrap(),
-                    }
-                );
-            }
-        }
-
-        prev_process_stats = Some(stats.process_stats);
+        let display = TaskGroupStatsDisplay {
+            prev_stats: prev_stats.as_ref().unwrap(),
+            curr_stats: &stats,
+        };
+        print!("{display}");
+        prev_stats = Some(stats);
     }
 }

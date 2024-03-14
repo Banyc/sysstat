@@ -5,7 +5,7 @@ use common::value::{int_stat_color, item_name_color, normal_color, zero_int_stat
 use crate::{cpu::CpuStats, io::IoStats, mem::MemStats, read::ProcId};
 
 #[derive(Debug, Clone)]
-pub struct Process {
+pub struct ProcessId {
     pub uid: usize,
     pub proc_id: ProcId,
     pub command: String,
@@ -13,7 +13,7 @@ pub struct Process {
 }
 
 #[derive(Debug, Clone)]
-pub struct ProcessStats {
+pub struct ComponentStats {
     pub cpu: Option<CpuStats>,
     pub mem: Option<MemStats>,
     pub io: Option<IoStats>,
@@ -34,7 +34,7 @@ impl fmt::Display for IdHeaderDisplay {
 }
 
 pub struct IdValueDisplay<'a> {
-    pub process: &'a Process,
+    pub process: &'a ProcessId,
     pub tid: TidDisplayOption,
 }
 impl<'a> fmt::Display for IdValueDisplay<'a> {
@@ -62,7 +62,7 @@ pub enum TidDisplayOption {
 }
 
 pub struct CommandDisplay<'a> {
-    pub process: &'a Process,
+    pub process: &'a ProcessId,
 }
 impl<'a> fmt::Display for CommandDisplay<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
