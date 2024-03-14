@@ -23,17 +23,6 @@ impl ReadStatsOptions {
             command: proc_stat.command,
         };
 
-        let mut io = None;
-        if self.io {
-            let proc_io = read_proc_io(self.id).await?;
-            io = Some(IoStats {
-                read_bytes: proc_io.read_bytes,
-                write_bytes: proc_io.write_bytes,
-                cancelled_write_bytes: proc_io.cancelled_write_bytes,
-                blkio_swapin_delays: proc_stat.delayacct_blkio_ticks,
-                time: now,
-            });
-        }
         let mut cpu = None;
         if self.cpu {
             let clock_ticks_per_second = rustix::param::clock_ticks_per_second();
@@ -62,7 +51,18 @@ impl ReadStatsOptions {
                 time: now,
             })
         }
-        let process_stats = ProcessStats { io, cpu, mem };
+        let mut io = None;
+        if self.io {
+            let proc_io = read_proc_io(self.id).await?;
+            io = Some(IoStats {
+                read_bytes: proc_io.read_bytes,
+                write_bytes: proc_io.write_bytes,
+                cancelled_write_bytes: proc_io.cancelled_write_bytes,
+                blkio_swapin_delays: proc_stat.delayacct_blkio_ticks,
+                time: now,
+            });
+        }
+        let process_stats = ProcessStats { cpu, mem, io };
 
         Ok(Stats {
             process,

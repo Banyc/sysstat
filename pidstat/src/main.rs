@@ -142,9 +142,9 @@ async fn main() {
             pid: cli.pid,
             tid: None,
         },
-        io: cli.io,
-        mem: cli.mem,
         cpu: cli.cpu,
+        mem: cli.mem,
+        io: cli.io,
     };
     let mut prev_process_stats = None;
     loop {
@@ -155,23 +155,6 @@ async fn main() {
         tokio::time::sleep(Duration::from_secs(cli.interval)).await;
         let stats = options.read().await.unwrap();
 
-        if options.io {
-            print!(
-                "{}",
-                IoStatsHeaderDisplay {
-                    tid: TidDisplayOption::Pid
-                }
-            );
-            print!(
-                "{}",
-                IoStatsValueDisplay {
-                    tid: TidDisplayOption::Pid,
-                    process: &stats.process,
-                    prev_stats: prev_process_stats.as_ref().unwrap().io.as_ref().unwrap(),
-                    curr_stats: stats.process_stats.io.as_ref().unwrap(),
-                }
-            );
-        }
         if options.cpu {
             print!(
                 "{}",
@@ -203,6 +186,23 @@ async fn main() {
                     process: &stats.process,
                     prev_stats: prev_process_stats.as_ref().unwrap().mem.as_ref().unwrap(),
                     curr_stats: stats.process_stats.mem.as_ref().unwrap(),
+                }
+            );
+        }
+        if options.io {
+            print!(
+                "{}",
+                IoStatsHeaderDisplay {
+                    tid: TidDisplayOption::Pid
+                }
+            );
+            print!(
+                "{}",
+                IoStatsValueDisplay {
+                    tid: TidDisplayOption::Pid,
+                    process: &stats.process,
+                    prev_stats: prev_process_stats.as_ref().unwrap().io.as_ref().unwrap(),
+                    curr_stats: stats.process_stats.io.as_ref().unwrap(),
                 }
             );
         }

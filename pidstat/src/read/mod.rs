@@ -24,9 +24,9 @@ impl ProcId {
 #[derive(Debug, Clone, Copy)]
 pub struct ReadStatsOptions {
     pub id: ProcId,
-    pub io: bool,
-    pub mem: bool,
     pub cpu: bool,
+    pub mem: bool,
+    pub io: bool,
 }
 
 pub struct Stats {

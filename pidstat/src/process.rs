@@ -14,9 +14,9 @@ pub struct Process {
 
 #[derive(Debug, Clone)]
 pub struct ProcessStats {
-    pub io: Option<IoStats>,
     pub cpu: Option<CpuStats>,
     pub mem: Option<MemStats>,
+    pub io: Option<IoStats>,
 }
 
 pub struct IdHeaderDisplay {
