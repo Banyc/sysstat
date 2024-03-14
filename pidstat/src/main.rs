@@ -1,17 +1,20 @@
-use std::time::Duration;
+use std::{
+    collections::{btree_map, BTreeMap},
+    time::Duration,
+};
 
 use clap::Parser;
 use pidstat::{
-    read::{read_task_group_stats, ComponentOptions},
+    read::{read_task_group_stats, ComponentOptions, ReadPidOptions, TaskGroupStats},
     TaskGroupStatsDisplay,
 };
 
 #[derive(Debug, Clone, Parser)]
 struct Cli {
     #[clap(short, long)]
-    pid: usize,
+    pid: Option<usize>,
     #[clap(short('G'), long)]
-    process_name: Option<usize>,
+    process_name: Option<String>,
     /// Report I/O statistics (kernels 2.6.20 and later only).
     /// The following values may be displayed:
     ///
@@ -142,24 +145,41 @@ async fn main() {
         io: cli.io,
     };
 
-    let mut prev_stats = None;
+    let mut prev_stats = BTreeMap::<usize, TaskGroupStats>::new();
+
     loop {
-        if prev_stats.is_none() {
-            prev_stats = Some(
-                read_task_group_stats(cli.pid, components, cli.task)
+        let pid = match (cli.pid, &cli.process_name) {
+            (None, None) => panic!("Provide either `pid` or `process-name`"),
+            (None, Some(process_name)) => ReadPidOptions { process_name }.read_pid().await,
+            (Some(pid), None) => vec![pid],
+            (Some(pid), Some(process_name)) => ReadPidOptions { process_name }
+                .read_pid()
+                .await
+                .into_iter()
+                .filter(|p| *p == pid)
+                .collect::<Vec<_>>(),
+        };
+
+        for &p in &pid {
+            if let btree_map::Entry::Vacant(e) = prev_stats.entry(p) {
+                let s = read_task_group_stats(p, components, cli.task)
                     .await
-                    .unwrap(),
-            );
+                    .unwrap();
+                e.insert(s);
+            }
         }
         tokio::time::sleep(Duration::from_secs(cli.interval)).await;
-        let stats = read_task_group_stats(cli.pid, components, cli.task)
-            .await
-            .unwrap();
-        let display = TaskGroupStatsDisplay {
-            prev_stats: prev_stats.as_ref().unwrap(),
-            curr_stats: &stats,
-        };
-        print!("{display}");
-        prev_stats = Some(stats);
+        for &p in &pid {
+            let Ok(stats) = read_task_group_stats(p, components, cli.task).await else {
+                prev_stats.remove(&p);
+                continue;
+            };
+            let display = TaskGroupStatsDisplay {
+                prev_stats: prev_stats.get(&p).unwrap(),
+                curr_stats: &stats,
+            };
+            print!("{display}");
+            prev_stats.insert(p, stats);
+        }
     }
 }

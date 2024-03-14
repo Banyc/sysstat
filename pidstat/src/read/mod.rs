@@ -103,3 +103,7 @@ pub async fn read_task_group_stats(
         task: task_stats,
     })
 }
+
+pub struct ReadPidOptions<'a> {
+    pub process_name: &'a str,
+}

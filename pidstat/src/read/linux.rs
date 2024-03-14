@@ -9,7 +9,28 @@ use crate::{
     process::{ComponentStats, ProcessId},
 };
 
-use super::{ProcId, ReadStatsError, ReadStatsOptions, ReadTasksOptions, Stats};
+use super::{ProcId, ReadPidOptions, ReadStatsError, ReadStatsOptions, ReadTasksOptions, Stats};
+
+impl ReadPidOptions<'_> {
+    pub async fn read_pid(&self) -> Vec<usize> {
+        let path = Path::new("/proc");
+        let mut pid = vec![];
+        let mut read_dir = tokio::fs::read_dir(path).await.expect("/proc");
+        while let Some(entry) = read_dir.next_entry().await.expect("/proc") {
+            let Ok(p) = entry.file_name().to_string_lossy().parse::<usize>() else {
+                continue;
+            };
+            let Ok(proc_stat) = read_proc_stat(ProcId { pid: p, tid: None }).await else {
+                continue;
+            };
+            if !proc_stat.command.contains(self.process_name) {
+                continue;
+            }
+            pid.push(p);
+        }
+        pid
+    }
+}
 
 impl ReadTasksOptions {
     pub async fn read_tid(&self) -> Result<Vec<usize>, ReadStatsError> {
