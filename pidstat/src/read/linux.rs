@@ -295,7 +295,9 @@ pub async fn read_proc_stat(id: ProcId) -> Result<ProcStat, ReadStatsError> {
         .await
         .map_err(ReadStatsError::NoSuchProcess)?;
     let mut text = String::new();
-    file.read_to_string(&mut text).await.expect("UTF-8");
+    file.read_to_string(&mut text)
+        .await
+        .map_err(ReadStatsError::NoSuchProcess)?;
 
     let command_start = text.find('(').expect("(") + 1;
     // Match right-most `)`
@@ -600,7 +602,9 @@ pub async fn read_proc_sched(id: ProcId) -> Result<ProcSched, ReadStatsError> {
         .await
         .map_err(ReadStatsError::NoSuchProcess)?;
     let mut text = String::new();
-    file.read_to_string(&mut text).await.expect("UTF-8");
+    file.read_to_string(&mut text)
+        .await
+        .map_err(ReadStatsError::NoSuchProcess)?;
     drop(file);
 
     let mut items = text.split_whitespace();
