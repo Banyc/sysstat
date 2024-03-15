@@ -132,7 +132,7 @@ pub async fn read_proc_status(id: ProcId) -> Result<ProcStatus, ReadStatsError> 
     while let Some(line) = lines.next_line().await.expect("UTF-8") {
         const UID: &str = "Uid:";
         if line.starts_with(UID) {
-            let remaining = line.chars().skip(UID.len()).skip(1).collect::<String>();
+            let remaining = line.chars().skip(UID.len()).collect::<String>();
             uid = Some(
                 remaining
                     .trim_start()
