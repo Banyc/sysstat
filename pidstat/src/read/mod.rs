@@ -54,7 +54,7 @@ pub enum ReadStatsError {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct ReadTasksOptions {
+pub struct ReadTidOptions {
     pub tgid: usize,
 }
 
@@ -63,7 +63,7 @@ pub async fn read_task_stats(
     components: ComponentOptions,
 ) -> Result<BTreeMap<usize, Stats>, ReadStatsError> {
     let mut task_stats = BTreeMap::new();
-    let tid = ReadTasksOptions { tgid: pid }.read_tid().await?;
+    let tid = ReadTidOptions { tgid: pid }.read_tid().await?;
     for tid in tid {
         let options = ReadStatsOptions {
             id: ProcId {
@@ -72,7 +72,7 @@ pub async fn read_task_stats(
             },
             components,
         };
-        let stats = options.read().await?;
+        let stats = options.read_stats().await?;
         task_stats.insert(tid, stats);
     }
     Ok(task_stats)
@@ -92,7 +92,7 @@ pub async fn read_task_group_stats(
         id: ProcId { pid, tid: None },
         components,
     };
-    let process_stats = process_options.read().await?;
+    let process_stats = process_options.read_stats().await?;
     let mut task_stats = BTreeMap::new();
     if task {
         task_stats = read_task_stats(pid, components).await?;

@@ -9,7 +9,7 @@ use crate::{
     process::{ComponentStats, ProcessId},
 };
 
-use super::{ProcId, ReadPidOptions, ReadStatsError, ReadStatsOptions, ReadTasksOptions, Stats};
+use super::{ProcId, ReadPidOptions, ReadStatsError, ReadStatsOptions, ReadTidOptions, Stats};
 
 impl ReadPidOptions<'_> {
     pub async fn read_pid(&self) -> Vec<usize> {
@@ -32,7 +32,7 @@ impl ReadPidOptions<'_> {
     }
 }
 
-impl ReadTasksOptions {
+impl ReadTidOptions {
     pub async fn read_tid(&self) -> Result<Vec<usize>, ReadStatsError> {
         let path = Path::new("/proc").join(self.tgid.to_string()).join("task");
         let mut tid = vec![];
@@ -48,7 +48,7 @@ impl ReadTasksOptions {
 }
 
 impl ReadStatsOptions {
-    pub async fn read(&self) -> Result<Stats, ReadStatsError> {
+    pub async fn read_stats(&self) -> Result<Stats, ReadStatsError> {
         let now = Instant::now();
         let proc_stat = read_proc_stat(self.id).await?;
         let proc_status = read_proc_status(self.id).await?;
