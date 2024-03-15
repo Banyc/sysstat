@@ -4,6 +4,7 @@ use tokio::io::{AsyncBufReadExt, AsyncReadExt};
 
 use crate::{
     cpu::CpuStats,
+    ctx_switch::CtxSwitchStats,
     io::IoStats,
     mem::MemStats,
     process::{ComponentStats, ProcessId},
@@ -97,7 +98,20 @@ impl ReadStatsOptions {
                 time: now,
             });
         }
-        let components = ComponentStats { cpu, mem, io };
+        let mut ctx_switch = None;
+        if self.components.ctx_switch {
+            ctx_switch = Some(CtxSwitchStats {
+                nvcsw: proc_status.voluntary_ctxt_switches,
+                nivcsw: proc_status.nonvoluntary_ctxt_switches,
+                time: now,
+            });
+        }
+        let components = ComponentStats {
+            cpu,
+            mem,
+            io,
+            ctx_switch,
+        };
 
         Ok(Stats { id, components })
     }
@@ -111,9 +125,9 @@ pub struct ProcStatus {
     /// Number of threads in process containing this thread
     pub threads: usize,
     /// Number of voluntary context switches
-    pub voluntary_ctxt_switches: usize,
+    pub voluntary_ctxt_switches: u64,
     /// Number of involuntary context switches
-    pub nonvoluntary_ctxt_switches: usize,
+    pub nonvoluntary_ctxt_switches: u64,
 }
 pub async fn read_proc_status(id: ProcId) -> Result<ProcStatus, ReadStatsError> {
     let path = id.path("status");
@@ -139,7 +153,7 @@ pub async fn read_proc_status(id: ProcId) -> Result<ProcStatus, ReadStatsError> 
                     .split_once('\t')
                     .expect("uid")
                     .0
-                    .parse::<usize>()
+                    .parse()
                     .expect("uid"),
             );
         }
@@ -150,7 +164,7 @@ pub async fn read_proc_status(id: ProcId) -> Result<ProcStatus, ReadStatsError> 
                     .skip(THREADS.len())
                     .collect::<String>()
                     .trim_start()
-                    .parse::<usize>()
+                    .parse()
                     .expect("threads"),
             );
         }
@@ -161,7 +175,7 @@ pub async fn read_proc_status(id: ProcId) -> Result<ProcStatus, ReadStatsError> 
                     .skip(VOLUNTARY_CTXT_SWITCHES.len())
                     .collect::<String>()
                     .trim_start()
-                    .parse::<usize>()
+                    .parse()
                     .expect("voluntary_ctxt_switches"),
             );
         }
@@ -172,7 +186,7 @@ pub async fn read_proc_status(id: ProcId) -> Result<ProcStatus, ReadStatsError> 
                     .skip(NONVOLUNTARY_CTXT_SWITCHES.len())
                     .collect::<String>()
                     .trim_start()
-                    .parse::<usize>()
+                    .parse()
                     .expect("nonvoluntary_ctxt_switches"),
             );
         }

@@ -40,6 +40,7 @@ pub struct ComponentOptions {
     pub cpu: bool,
     pub mem: bool,
     pub io: bool,
+    pub ctx_switch: bool,
 }
 
 pub struct Stats {

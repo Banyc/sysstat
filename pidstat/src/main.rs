@@ -129,6 +129,35 @@ struct Cli {
     ///        The command name of the task.
     #[clap(short('r'), long)]
     mem: bool,
+    /// Report task switching activity (kernels 2.6.23 and later
+    /// only).  The following values may be displayed:
+    ///
+    /// UID    The real user identification number of the task
+    ///        being monitored.
+    ///
+    /// USER   The name of the real user owning the task being
+    ///        monitored.
+    ///
+    /// PID    The identification number of the task being
+    ///        monitored.
+    ///
+    /// cswch/s
+    ///        Total number of voluntary context switches the task
+    ///        made per second.  A voluntary context switch occurs
+    ///        when a task blocks because it requires a resource
+    ///        that is unavailable.
+    ///
+    /// nvcswch/s
+    ///        Total number of non voluntary context switches the
+    ///        task made per second.  An involuntary context
+    ///        switch takes place when a task executes for the
+    ///        duration of its time slice and then is forced to
+    ///        relinquish the processor.
+    ///
+    /// Command
+    ///        The command name of the task.
+    #[clap(short('w'), long)]
+    ctx_switch: bool,
     #[clap(short('t'), long)]
     task: bool,
     /// Specify the amount of time in seconds between each report
@@ -143,6 +172,7 @@ async fn main() {
         cpu: cli.cpu,
         mem: cli.mem,
         io: cli.io,
+        ctx_switch: cli.ctx_switch,
     };
 
     let mut prev_stats = BTreeMap::<usize, TaskGroupStats>::new();
