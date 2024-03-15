@@ -162,9 +162,9 @@ async fn main() {
 
         for &p in &pid {
             if let btree_map::Entry::Vacant(e) = prev_stats.entry(p) {
-                let s = read_task_group_stats(p, components, cli.task)
-                    .await
-                    .unwrap();
+                let Ok(s) = read_task_group_stats(p, components, cli.task).await else {
+                    continue;
+                };
                 e.insert(s);
             }
         }

@@ -63,7 +63,7 @@ pub async fn read_task_stats(
     components: ComponentOptions,
 ) -> Result<BTreeMap<usize, Stats>, ReadStatsError> {
     let mut task_stats = BTreeMap::new();
-    let tid = ReadTasksOptions { tgid: pid }.read_tid().await.unwrap();
+    let tid = ReadTasksOptions { tgid: pid }.read_tid().await?;
     for tid in tid {
         let options = ReadStatsOptions {
             id: ProcId {
@@ -72,7 +72,7 @@ pub async fn read_task_stats(
             },
             components,
         };
-        let stats = options.read().await.unwrap();
+        let stats = options.read().await?;
         task_stats.insert(tid, stats);
     }
     Ok(task_stats)
@@ -92,10 +92,10 @@ pub async fn read_task_group_stats(
         id: ProcId { pid, tid: None },
         components,
     };
-    let process_stats = process_options.read().await.unwrap();
+    let process_stats = process_options.read().await?;
     let mut task_stats = BTreeMap::new();
     if task {
-        task_stats = read_task_stats(pid, components).await.unwrap();
+        task_stats = read_task_stats(pid, components).await?;
     }
     Ok(TaskGroupStats {
         pid,
