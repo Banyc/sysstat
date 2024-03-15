@@ -8,6 +8,7 @@ use crate::{
     io::IoStats,
     mem::MemStats,
     process::{ComponentStats, ProcessId},
+    stack::StackStats,
 };
 
 use super::{ProcId, ReadPidOptions, ReadStatsError, ReadStatsOptions, ReadTidOptions, Stats};
@@ -87,6 +88,15 @@ impl ReadStatsOptions {
                 time: now,
             })
         }
+        let mut stack = None;
+        if self.components.stack {
+            let proc_smap = read_proc_smaps(self.id).await?;
+            stack = Some(StackStats {
+                stk_size: proc_smap.stack.size,
+                stk_ref: proc_smap.stack.referenced,
+                time: now,
+            });
+        }
         let mut io = None;
         if self.components.io {
             let proc_io = read_proc_io(self.id).await?;
@@ -109,6 +119,7 @@ impl ReadStatsOptions {
         let components = ComponentStats {
             cpu,
             mem,
+            stack,
             io,
             ctx_switch,
         };
@@ -671,4 +682,83 @@ pub async fn read_proc_mem_info() -> Result<ProcMemInfo, ReadStatsError> {
     Ok(ProcMemInfo {
         mem_total: mem_total.expect("mem_total"),
     })
+}
+
+/// Ref: <https://man7.org/linux/man-pages/man5/proc.5.html>
+///
+/// Memory consumption for each of the process's mappings
+#[derive(Debug, Clone)]
+pub struct ProcSmaps {
+    pub stack: Smap,
+}
+pub async fn read_proc_smaps(id: ProcId) -> Result<ProcSmaps, ReadStatsError> {
+    let path = id.path("smaps");
+    let file = tokio::fs::File::options()
+        .read(true)
+        .open(path)
+        .await
+        .map_err(ReadStatsError::NoSuchProcess)?;
+    let buf = tokio::io::BufReader::new(file);
+    let mut lines = buf.lines();
+    let mut stack = None;
+    while let Some(line) = lines.next_line().await.expect("UTF-8") {
+        if line.contains("[stack]") {
+            stack = Some(read_smaps(&mut lines).await);
+        }
+    }
+
+    Ok(ProcSmaps {
+        stack: stack.expect("stack"),
+    })
+}
+#[derive(Debug, Clone, Copy)]
+pub struct Smap {
+    /// The size of the mapping in kB
+    pub size: u64,
+    /// The amount of memory currently marked as referenced or accessed in kB
+    pub referenced: u64,
+}
+async fn read_smaps<R>(lines: &mut tokio::io::Lines<R>) -> Smap
+where
+    R: tokio::io::AsyncBufRead + Unpin,
+{
+    const SIZE: &str = "Size:";
+    let mut size = None;
+    while let Some(line) = lines.next_line().await.expect("UTF-8") {
+        if line.starts_with(SIZE) {
+            size = Some(
+                line.chars()
+                    .skip(SIZE.len())
+                    .collect::<String>()
+                    .split_whitespace()
+                    .next()
+                    .expect("size")
+                    .parse()
+                    .expect("size"),
+            );
+            break;
+        }
+    }
+    const REFERENCED: &str = "Referenced:";
+    let mut referenced = None;
+    while let Some(line) = lines.next_line().await.expect("UTF-8") {
+        if line.starts_with(REFERENCED) {
+            referenced = Some(
+                line.chars()
+                    .skip(REFERENCED.len())
+                    .collect::<String>()
+                    .split_whitespace()
+                    .next()
+                    .expect("referenced")
+                    .parse()
+                    .expect("referenced"),
+            );
+            break;
+        }
+    }
+
+    Smap {
+        size: size.expect("size"),
+        referenced: referenced.expect("referenced"),
+    }
 }

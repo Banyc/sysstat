@@ -39,6 +39,7 @@ pub struct ReadStatsOptions {
 pub struct ComponentOptions {
     pub cpu: bool,
     pub mem: bool,
+    pub stack: bool,
     pub io: bool,
     pub ctx_switch: bool,
 }

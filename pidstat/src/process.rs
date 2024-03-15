@@ -2,7 +2,10 @@ use core::fmt;
 
 use common::value::{int_stat_color, item_name_color, normal_color, zero_int_stat_color};
 
-use crate::{cpu::CpuStats, ctx_switch::CtxSwitchStats, io::IoStats, mem::MemStats, read::ProcId};
+use crate::{
+    cpu::CpuStats, ctx_switch::CtxSwitchStats, io::IoStats, mem::MemStats, read::ProcId,
+    stack::StackStats,
+};
 
 #[derive(Debug, Clone)]
 pub struct ProcessId {
@@ -16,6 +19,7 @@ pub struct ProcessId {
 pub struct ComponentStats {
     pub cpu: Option<CpuStats>,
     pub mem: Option<MemStats>,
+    pub stack: Option<StackStats>,
     pub io: Option<IoStats>,
     pub ctx_switch: Option<CtxSwitchStats>,
 }

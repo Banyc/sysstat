@@ -6,6 +6,7 @@ use io::{IoStatsHeaderDisplay, IoStatsValueDisplay};
 use mem::{MemStatsHeaderDisplay, MemStatsValueDisplay};
 use process::TidDisplayOption;
 use read::TaskGroupStats;
+use stack::{StackStatsHeaderDisplay, StackStatsValueDisplay};
 
 use crate::cpu::CpuStatsHeaderDisplay;
 
@@ -15,6 +16,7 @@ pub mod io;
 pub mod mem;
 pub mod process;
 pub mod read;
+pub mod stack;
 
 pub struct TaskGroupStatsDisplay<'a> {
     pub prev_stats: &'a TaskGroupStats,
@@ -74,6 +76,26 @@ impl<'a> fmt::Display for TaskGroupStatsDisplay<'a> {
                     id: &stats.id,
                     prev_stats: prev_stats.components.mem.as_ref().unwrap(),
                     curr_stats: stats.components.mem.as_ref().unwrap(),
+                };
+                write!(f, "{task}")?;
+            }
+        }
+        if self.curr_stats.process.components.stack.is_some() {
+            let header = StackStatsHeaderDisplay {
+                tid: tid_display_option,
+            };
+            write!(f, "{header}")?;
+            let process = StackStatsValueDisplay {
+                tid: tid_display_option,
+                id: &self.curr_stats.process.id,
+                curr_stats: self.curr_stats.process.components.stack.as_ref().unwrap(),
+            };
+            write!(f, "{process}")?;
+            for stats in self.curr_stats.task.values() {
+                let task = StackStatsValueDisplay {
+                    tid: tid_display_option,
+                    id: &stats.id,
+                    curr_stats: stats.components.stack.as_ref().unwrap(),
                 };
                 write!(f, "{task}")?;
             }

@@ -129,6 +129,29 @@ struct Cli {
     ///        The command name of the task.
     #[clap(short('r'), long)]
     mem: bool,
+    /// Report stack utilization.  The following values may be
+    /// displayed:
+    ///
+    /// UID    The real user identification number of the task
+    ///        being monitored.
+    ///
+    /// USER   The name of the real user owning the task being
+    ///        monitored.
+    ///
+    /// PID    The identification number of the task being
+    ///        monitored.
+    ///
+    /// StkSize
+    ///        The amount of memory in kilobytes reserved for the
+    ///        task as stack, but not necessarily used.
+    ///
+    /// StkRef The amount of memory in kilobytes used as stack,
+    ///        referenced by the task.
+    ///
+    /// Command
+    ///        The command name of the task.
+    #[clap(short('s'), long)]
+    stack: bool,
     /// Report task switching activity (kernels 2.6.23 and later
     /// only).  The following values may be displayed:
     ///
@@ -171,6 +194,7 @@ async fn main() {
     let components = ComponentOptions {
         cpu: cli.cpu,
         mem: cli.mem,
+        stack: cli.stack,
         io: cli.io,
         ctx_switch: cli.ctx_switch,
     };
